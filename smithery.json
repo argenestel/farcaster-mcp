@@ -35,19 +35,6 @@
       }
     ],
     "resources": [
-      {
-        "name": "trending-casts",
-        "description": "Get trending casts from Farcaster"
-      }
-    ],
-    "prompts": [
-      {
-        "name": "analyze-cast",
-        "description": "Analyze a Farcaster cast",
-        "parameters": {
-          "cast_hash": "string"
-        }
-      }
     ]
   }
 } 
