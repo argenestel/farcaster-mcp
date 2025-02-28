@@ -7,6 +7,20 @@
     "build": "npm install && tsc",
     "start": "node build/index.js"
   },
+  "build": {
+    "type": "docker",
+    "dockerfile": "Dockerfile"
+  },
+  "startCommand": {
+    "type": "stdio",
+    "configSchema": {
+      "type": "object",
+      "required": [],
+      "properties": {},
+      "description": "No additional configuration is required for the Farcaster MCP server."
+    },
+    "commandFunction": "(config) => { return { command: 'node', args: ['build/index.js'], env: {} }; }"
+  },
   "capabilities": {
     "tools": [
       {
@@ -34,7 +48,6 @@
         }
       }
     ],
-    "resources": [
-    ]
+    "resources": []
   }
 } 
