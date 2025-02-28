@@ -9,8 +9,6 @@ An MCP server that provides tools to interact with the Farcaster social network,
 - **Get User Casts**: Retrieve casts from a specific Farcaster user by FID
 - **Get Username Casts**: Retrieve casts from a specific Farcaster user by username
 - **Get Channel Casts**: Retrieve casts from a specific Farcaster channel
-- **Analyze Cast**: Generate an analysis prompt for a specific cast
-- **Search Casts**: Search for casts by keyword (new feature)
 
 ## Installation
 
@@ -107,25 +105,6 @@ Parameters:
 - `limit` (optional): Maximum number of casts to return (default: 10)
 
 Example query: "Show me the latest casts from the 'aichannel' channel."
-
-#### search-casts
-
-Searches for casts containing a specific keyword.
-
-Parameters:
-- `keyword`: Keyword to search for in casts (string)
-- `limit` (optional): Maximum number of casts to return (default: 10)
-
-Example query: "Search for casts containing 'AI'."
-
-#### analyze-cast
-
-Generates an analysis prompt for a specific cast.
-
-Parameters:
-- `cast_hash`: The hash of the cast to analyze (string)
-
-Example query: "Analyze this cast: 0x1234567890abcdef."
 
 ## Smithery Configuration
 
