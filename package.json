@@ -1,0 +1,25 @@
+{
+  "name": "farcaster-mcp",
+  "version": "1.0.0",
+  "description": "MCP server for Farcaster Hubble API",
+  "main": "build/index.js",
+  "type": "module",
+  "scripts": {
+    "build": "tsc",
+    "start": "node build/index.js",
+    "dev": "tsc && node build/index.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": ["mcp", "farcaster", "social", "api", "hubble"],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.6.0",
+    "@types/node": "^20.11.19",
+    "axios": "^1.6.7",
+    "zod": "^3.24.2"
+  },
+  "devDependencies": {
+    "typescript": "^5.3.3"
+  }
+} 
