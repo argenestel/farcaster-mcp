@@ -1,0 +1,53 @@
+{
+  "name": "farcaster-mcp",
+  "description": "MCP server for Farcaster social network",
+  "version": "1.0.0",
+  "main": "build/index.js",
+  "scripts": {
+    "build": "npm install && tsc",
+    "start": "node build/index.js"
+  },
+  "capabilities": {
+    "tools": [
+      {
+        "name": "get-user-casts",
+        "description": "Get casts from a specific Farcaster user by FID",
+        "parameters": {
+          "fid": "number",
+          "limit": "number?"
+        }
+      },
+      {
+        "name": "get-channel-casts",
+        "description": "Get casts from a specific Farcaster channel",
+        "parameters": {
+          "channel": "string",
+          "limit": "number?"
+        }
+      },
+      {
+        "name": "get-username-casts",
+        "description": "Get casts from a specific Farcaster username",
+        "parameters": {
+          "username": "string",
+          "limit": "number?"
+        }
+      }
+    ],
+    "resources": [
+      {
+        "name": "trending-casts",
+        "description": "Get trending casts from Farcaster"
+      }
+    ],
+    "prompts": [
+      {
+        "name": "analyze-cast",
+        "description": "Analyze a Farcaster cast",
+        "parameters": {
+          "cast_hash": "string"
+        }
+      }
+    ]
+  }
+} 
