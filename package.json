@@ -10,7 +10,7 @@
     "dev": "tsc && node build/index.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "keywords": ["mcp", "farcaster", "social", "api", "hubble"],
+  "keywords": ["mcp", "farcaster", "api", "hubble", "farcaster"],
   "author": "",
   "license": "ISC",
   "dependencies": {

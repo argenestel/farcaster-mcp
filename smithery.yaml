@@ -1,6 +1,5 @@
-# Smithery configuration file: https://smithery.ai/docs/config#smitheryyaml
 name: farcaster-mcp
-description: MCP server for Farcaster social network
+description: MCP server for Farcaster network
 version: 1.0.0
 
 build:
@@ -9,14 +8,7 @@ build:
 
 startCommand:
   type: stdio
-  # JSON Schema defining the configuration options for the MCP
-  configSchema:
-    type: object
-    # No required fields for this MCP server
-    required: []
-    properties: {}
-    description: No additional configuration is required for the Farcaster MCP server.
-  # A function that produces the CLI command to start the MCP on stdio
+  configSchema: {}
   commandFunction: |
     (config) => {
       return {

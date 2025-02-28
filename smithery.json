@@ -1,6 +1,6 @@
 {
   "name": "farcaster-mcp",
-  "description": "MCP server for Farcaster social network",
+  "description": "MCP server for Farcaster network",
   "version": "1.0.0",
   "main": "build/index.js",
   "scripts": {
