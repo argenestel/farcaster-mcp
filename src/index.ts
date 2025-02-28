@@ -7,7 +7,6 @@ import * as process from 'process';
 
 // Farcaster Hubble API base URL
 const HUBBLE_API_BASE = "https://nemes.farcaster.xyz:2281/v1";
-// No API key needed for direct Hubble API
 
 // Create MCP server with all capabilities
 const server = new McpServer({

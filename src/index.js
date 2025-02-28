@@ -44,7 +44,6 @@ var buffer_1 = require("buffer");
 var process = require("process");
 // Farcaster Hubble API base URL
 var HUBBLE_API_BASE = "https://nemes.farcaster.xyz:2281/v1";
-// No API key needed for direct Hubble API
 // Create MCP server with all capabilities
 var server = new mcp_js_1.McpServer({
     name: "farcaster-mcp",

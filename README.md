@@ -2,7 +2,7 @@
 
 [![smithery badge](https://smithery.ai/badge/@manimohans/farcaster-mcp)](https://smithery.ai/server/@manimohans/farcaster-mcp)
 
-An MCP server that provides tools to interact with the Farcaster social network, allowing AI models to fetch casts, search channels, and analyze content.
+An MCP server that provides tools to interact with the Farcaster network ([farcaster.xyz](https://www.farcaster.xyz)), allowing AI models to fetch casts, search channels, and analyze content.
 
 ## Features
 
@@ -116,7 +116,7 @@ This repository includes the necessary configuration files for Smithery:
 
 ## API Details
 
-This implementation uses the Farcaster Hubble API to fetch data. No API key is required for basic functionality.
+This implementation uses the Farcaster Hubble API to fetch data.
 
 ## Development
 
