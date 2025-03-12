@@ -4,6 +4,10 @@
 
 An MCP server that provides tools to interact with the Farcaster network ([farcaster.xyz](https://www.farcaster.xyz)), allowing AI models to fetch casts, search channels, and analyze content.
 
+<a href="https://glama.ai/mcp/servers/koo5epnlc7">
+  <img width="380" height="200" src="https://glama.ai/mcp/servers/koo5epnlc7/badge" alt="Farcaster Server MCP server" />
+</a>
+
 ## Features
 
 - **Get User Casts**: Retrieve casts from a specific Farcaster user by FID
@@ -127,4 +131,4 @@ npm run dev
 
 ## License
 
-MIT 
+MIT
