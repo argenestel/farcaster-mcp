@@ -7,11 +7,16 @@
   "bin": {
     "farcaster-mcp": "./build/index.js"
   },
+  "files": [
+    "build",
+    "package.json"
+  ],
   "scripts": {
     "build": "tsc",
     "start": "node build/index.js",
     "dev": "tsc && node build/index.js",
     "prepublishOnly": "npm run build",
+    "postinstall": "npm run build",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": ["mcp", "farcaster", "api", "hubble", "farcaster"],
