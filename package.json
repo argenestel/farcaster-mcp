@@ -16,19 +16,18 @@
     "start": "node build/index.js",
     "dev": "tsc && node build/index.js",
     "prepublishOnly": "npm run build",
-    "postinstall": "npm run build",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": ["mcp", "farcaster", "api", "hubble", "farcaster"],
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.6.0",
-    "@types/node": "^20.11.19",
-    "axios": "^1.6.7",
-    "zod": "^3.24.2"
+    "@modelcontextprotocol/sdk": "^1.11.2",
+    "@types/node": "^20.17.46",
+    "axios": "^1.9.0",
+    "zod": "^3.24.4"
   },
   "devDependencies": {
-    "typescript": "^5.3.3"
+    "typescript": "^5.8.3"
   }
-} 
+}

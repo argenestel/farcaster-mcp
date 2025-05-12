@@ -7,7 +7,7 @@ package-lock.json
 yarn.lock
 
 # Build outputs
-build/
+# build/
 dist/
 lib/
 out/
