@@ -7,8 +7,8 @@ import axios from "axios";
 import { Buffer } from 'buffer';
 import * as process from 'process';
 
-// Farcaster Hubble API base URL
-const HUBBLE_API_BASE = "https://nemes.farcaster.xyz:2281/v1";
+// Warpcast API base URL
+const WARPCAST_API_BASE = "https://client.warpcast.com/v2";
 
 // Create MCP server with all capabilities
 const server = new McpServer({
@@ -21,261 +21,215 @@ const server = new McpServer({
   }
 });
 
-// Types for Farcaster API responses based on actual API structure
-interface CastAddBody {
-  text: string;
-  mentions?: number[];
-  mentionsPositions?: number[];
-  parentCastId?: {
-    fid: number;
-    hash: string;
-  };
-  embeds?: any[];
-  embedsDeprecated?: any[];
-}
+// Types for Warpcast API responses
 
-interface CastRemoveBody {
-  targetHash: string;
-}
-
-interface CastData {
-  type: string;
-  fid: number;
-  timestamp: number;
-  network: string;
-  castAddBody?: CastAddBody;
-  castRemoveBody?: CastRemoveBody;
-}
-
-interface Cast {
-  data: CastData;
-  hash: string;
-  hashScheme: string;
-  signature: string;
-  signatureScheme: string;
-  signer: string;
-}
-
-interface UserData {
-  type: number;
-  fid: number;
-  username?: string;
-  displayName?: string;
-  pfpUrl?: string;
-  bio?: string;
-}
-
-// Farcaster user data type constants
-const USER_DATA_TYPE_DISPLAY = "USER_DATA_TYPE_DISPLAY";
-const USER_DATA_TYPE_DISPLAY_NAME = USER_DATA_TYPE_DISPLAY; // Alias for backward compatibility
-
-interface FarcasterCastsResponse {
-  messages: Cast[];
-  nextPageToken?: string;
-}
-
-interface FarcasterUserDataResponse {
-  messages: {
-    data: {
-      type: number;
+interface WarpcastUserResponse {
+  result: {
+    user: {
       fid: number;
-      userDataBody: {
-        type: number;
-        value: string;
-      }
-    }
-  }[];
+      displayName: string;
+      username: string;
+      profile: {
+        bio: {
+          text: string;
+          mentions: any[];
+          channelMentions: any[];
+        };
+        location: {
+          placeId: string;
+          description: string;
+        };
+        earlyWalletAdopter: boolean;
+      };
+      followerCount: number;
+      followingCount: number;
+      pfp: {
+        url: string;
+        verified: boolean;
+      };
+      connectedAccounts: any[];
+      viewerContext: any;
+    };
+    collectionsOwned: any[];
+    extras: {
+      fid: number;
+      custodyAddress: string;
+      ethWallets: string[];
+      solanaWallets: string[];
+      walletLabels: any[];
+      v2: boolean;
+    };
+  };
 }
 
-// Helper function to make API requests to Farcaster Hubble
-async function fetchFromHubble(endpoint: string, params: Record<string, any> = {}) {
+interface WarpcastCast {
+  hash: string;
+  threadHash: string;
+  author: {
+    fid: number;
+    displayName: string;
+    username: string;
+    profile: {
+      bio: {
+        text: string;
+        mentions: any[];
+        channelMentions: any[];
+      };
+      location: {
+        placeId: string;
+        description: string;
+      };
+      earlyWalletAdopter?: boolean;
+    };
+    followerCount: number;
+    followingCount: number;
+    pfp: {
+      url: string;
+      verified: boolean;
+    };
+  };
+  text: string;
+  timestamp: number;
+  replies: {
+    count: number;
+  };
+  reactions: {
+    count: number;
+  };
+  recasts: {
+    count: number;
+    recasters: any[];
+  };
+  watches: {
+    count: number;
+  };
+  parentHash?: string;
+  parentAuthor?: any;
+  embeds?: {
+    images: any[];
+    urls: any[];
+    unknowns: any[];
+    videos: any[];
+    processedCastText: string;
+    groupInvites: any[];
+  };
+  tags?: any[];
+  mentions?: any[];
+  channel?: any;
+  recast?: boolean;
+  quoteCount: number;
+  combinedRecastCount: number;
+}
+
+interface WarpcastCastsResponse {
+  result: {
+    casts: WarpcastCast[];
+  };
+}
+
+// Helper function to make API requests to Warpcast API
+async function fetchFromWarpcast(endpoint: string, params: Record<string, any> = {}) {
   try {
-    console.error(`Fetching from ${HUBBLE_API_BASE}${endpoint} with params:`, params);
-    const response = await axios.get(`${HUBBLE_API_BASE}${endpoint}`, {
+    console.error(`Fetching from ${WARPCAST_API_BASE}${endpoint} with params:`, params);
+    const response = await axios.get(`${WARPCAST_API_BASE}${endpoint}`, {
       params
     });
     console.error(`Response status: ${response.status}`);
     return response.data;
   } catch (error) {
-    console.error("Error fetching from Hubble API:", error);
+    console.error("Error fetching from Warpcast API:", error);
     if (axios.isAxiosError(error) && error.response) {
-      throw new Error(`Hubble API error: ${error.response.status} - ${error.response.data?.details || error.message}`);
+      throw new Error(`Warpcast API error: ${error.response.status} - ${error.response.data?.details || error.message}`);
     }
-    throw new Error(`Failed to fetch from Hubble: ${error instanceof Error ? error.message : String(error)}`);
+    throw new Error(`Failed to fetch from Warpcast: ${error instanceof Error ? error.message : String(error)}`);
   }
 }
 
-// Helper function to get user data (username, display name)
-async function getUserData(fid: number): Promise<UserData> {
+// Helper function to get casts by FID from Warpcast API
+async function getCastsByFid(fid: number, limit: number = 10): Promise<WarpcastCast[]> {
   try {
-    console.error(`Fetching user data for FID: ${fid}`);
-    const userData: UserData = { fid, type: 0 };
-    let foundDisplayName = false;
+    console.error(`Fetching casts for FID ${fid} with limit ${limit}`);
     
-    // Get user data - only looking for display name
-    try {
-      // Log that we're fetching display name
-      console.error(`Fetching display name for FID ${fid} from userDataByFid endpoint`);
-      
-      // Make the API call with no type filter to get all user data
-      const userDataResponse = await fetchFromHubble(`/userDataByFid`, {
-        fid
-      }) as FarcasterUserDataResponse;
-      
-      console.error(`Got user data response with ${userDataResponse.messages?.length || 0} messages`);
-      
-      if (userDataResponse.messages && userDataResponse.messages.length > 0) {
-        // Process user data messages
-        for (const message of userDataResponse.messages) {
-          if (message.data && message.data.userDataBody) {
-            const type = message.data.userDataBody.type;
-            const value = message.data.userDataBody.value;
-            
-            console.error(`Processing user data message with type ${type} and value "${value}"`);
-            
-            // Check if this is a display name
-            // The API seems to return "USER_DATA_TYPE_DISPLAY" as the type
-            if (String(type) === "USER_DATA_TYPE_DISPLAY" || String(type).includes("DISPLAY")) {
-              userData.displayName = value;
-              foundDisplayName = true;
-              console.error(`Found display name: ${value}`);
-            }
-          }
-        }
-      } else {
-        console.error(`No user data messages found for FID ${fid}`);
-      }
-      
-      // Debug the userData object to see if displayName was set
-      console.error(`After processing messages, userData.displayName = ${userData.displayName || 'undefined'}, foundDisplayName = ${foundDisplayName}`);
-      
-      // If we didn't find a display name, try a different approach
-      if (!foundDisplayName) {
-        console.error(`No display name found for FID ${fid}, trying alternative approach`);
-        
-        // Try fetching with specific type
-        const specificResponse = await fetchFromHubble(`/userDataByFid`, {
-          fid,
-          user_data_type: 2 // Try with numeric value for DISPLAY
-        }) as FarcasterUserDataResponse;
-        
-        if (specificResponse.messages && specificResponse.messages.length > 0) {
-          for (const message of specificResponse.messages) {
-            if (message.data && message.data.userDataBody) {
-              const type = message.data.userDataBody.type;
-              console.error(`Specific query: message type ${type}`);
-              
-              // Check for display name
-              if (String(type) === "USER_DATA_TYPE_DISPLAY" || String(type).includes("DISPLAY") || type === 2) {
-                userData.displayName = message.data.userDataBody.value;
-                foundDisplayName = true;
-                console.error(`Found display name in specific query: ${userData.displayName}`);
-                break;
-              }
-            }
-          }
-        }
-      }
-    } catch (error) {
-      console.error(`Error getting user data: ${error}`);
+    const response = await axios.get(`${WARPCAST_API_BASE}/casts`, {
+      params: { fid, limit }
+    });
+    
+    if (response.data && response.data.result && response.data.result.casts) {
+      console.error(`Got ${response.data.result.casts.length} casts`);
+      return response.data.result.casts;
     }
     
-    console.error(`Final user data for FID ${fid}: displayName=${userData.displayName || 'not found'}, foundDisplayName=${foundDisplayName}`);
-    return userData;
+    console.error(`No casts found for FID ${fid}`);
+    return [];
   } catch (error) {
-    console.error("Error fetching user data:", error);
-    return { fid, type: 0 };
+    console.error(`Error fetching casts for FID ${fid}:`, error);
+    return [];
   }
 }
 
-// Helper function to format casts
-async function formatCasts(casts: Cast[], limit: number = 10) {
+// Helper function to format Warpcast casts
+function formatWarpcastCasts(casts: WarpcastCast[], limit: number = 10): string {
   if (!casts || casts.length === 0) {
     return "No casts found.";
   }
   
   console.error(`Formatting ${casts.length} casts`);
   
-  // Filter out cast removes and keep only cast adds
-  const castAdds = casts.filter(cast => 
-    cast.data && cast.data.type === "MESSAGE_TYPE_CAST_ADD" && cast.data.castAddBody
-  );
-  
-  if (castAdds.length === 0) {
-    return "No cast additions found.";
-  }
-  
   // Limit the number of casts
-  const limitedCasts = castAdds.slice(0, limit);
+  const limitedCasts = casts.slice(0, limit);
   
-  // First, collect all unique FIDs to fetch user data in batch
-  const uniqueFids = new Set<number>();
-  limitedCasts.forEach(cast => {
-    if (cast.data && cast.data.fid) {
-      uniqueFids.add(cast.data.fid);
-    }
-  });
-  
-  console.error(`Found ${uniqueFids.size} unique FIDs, fetching user data for all of them`);
-  
-  // Fetch user data for all FIDs
-  const userDataMap = new Map<number, UserData>();
-  const userDataPromises = Array.from(uniqueFids).map(async fid => {
+  const formattedCasts = limitedCasts.map((cast, index) => {
     try {
-      const userData = await getUserData(fid);
-      userDataMap.set(fid, userData);
-      console.error(`Fetched user data for FID ${fid}: displayName=${userData.displayName}`);
-    } catch (error) {
-      console.error(`Error fetching user data for FID ${fid}:`, error);
-      // Add a minimal entry to the map so we don't fail later
-      userDataMap.set(fid, { fid, type: 0 });
-    }
-  });
-  
-  // Wait for all user data to be fetched
-  await Promise.all(userDataPromises);
-  console.error(`Completed fetching user data for all ${uniqueFids.size} FIDs`);
-  
-  // Now format all casts with the pre-fetched user data
-  const formattedCastsPromises = limitedCasts.map(async (cast, index) => {
-    try {
-      // Check if cast and cast.data exist
-      if (!cast || !cast.data || !cast.data.castAddBody) {
-        console.error(`Invalid cast at index ${index}:`, cast);
-        return `${index + 1}. [Invalid cast format]`;
-      }
+      const author = cast.author;
+      const displayName = author.displayName || author.username || `User ${author.fid}`;
       
-      const fid = cast.data.fid;
-      const userData = userDataMap.get(fid) || { fid, type: 0 };
+      // Convert timestamp to readable date (Warpcast timestamps are in milliseconds)
+      const date = new Date(cast.timestamp).toLocaleString();
       
-      // Convert Farcaster epoch timestamp to date
-      const farcasterEpoch = new Date('2021-01-01T00:00:00Z').getTime() / 1000;
-      const date = new Date((cast.data.timestamp + farcasterEpoch) * 1000).toLocaleString();
-      
-      // Use displayName if available, otherwise just show the index
-      const displayName = userData.displayName || `User ${fid}`;
-      
-      // Check if this is a reply to another cast
+      // Check if this is a reply
       let replyInfo = "";
-      if (cast.data.castAddBody.parentCastId) {
-        replyInfo = `   Reply to: ${cast.data.castAddBody.parentCastId.fid}/${cast.data.castAddBody.parentCastId.hash}\n`;
+      if (cast.parentHash && cast.parentAuthor) {
+        replyInfo = `   Reply to: ${cast.parentAuthor.displayName || cast.parentAuthor.username} (${cast.parentHash})\n`;
       }
       
       // Check if there are embeds
       let embedsInfo = "";
-      if (cast.data.castAddBody.embeds && cast.data.castAddBody.embeds.length > 0) {
-        embedsInfo = "   Embeds: " + cast.data.castAddBody.embeds.map((embed: any) => {
-          if (embed.url) return embed.url;
-          return "embedded content";
-        }).join(", ") + "\n";
+      if (cast.embeds && (cast.embeds.images.length > 0 || cast.embeds.urls.length > 0)) {
+        const embedParts: string[] = [];
+        if (cast.embeds.images.length > 0) {
+          embedParts.push(`${cast.embeds.images.length} image(s)`);
+        }
+        if (cast.embeds.urls.length > 0) {
+          embedParts.push(`${cast.embeds.urls.length} URL(s)`);
+        }
+        embedsInfo = `   Embeds: ${embedParts.join(", ")}\n`;
+      }
+      
+      // Check for mentions
+      let mentionsInfo = "";
+      if (cast.mentions && cast.mentions.length > 0) {
+        mentionsInfo = `   Mentions: ${cast.mentions.map((m: any) => `@${m.username}`).join(", ")}\n`;
+      }
+      
+      // Check for channel
+      let channelInfo = "";
+      if (cast.channel) {
+        channelInfo = `   Channel: /${cast.channel.key}\n`;
+      }
+      
+      // Check if this is a recast
+      let recastInfo = "";
+      if (cast.recast) {
+        recastInfo = `   [RECAST]\n`;
       }
       
       return `
-${index + 1}. ${displayName}
-   FID: ${fid}
+${index + 1}. ${displayName} (@${author.username})
+   FID: ${author.fid}
    Time: ${date}
-   Text: ${cast.data.castAddBody.text}
-${replyInfo}${embedsInfo}   Cast ID: ${cast.hash}
+   Text: ${cast.text}
+${replyInfo}${embedsInfo}${mentionsInfo}${channelInfo}${recastInfo}   Reactions: ${cast.reactions.count} | Recasts: ${cast.recasts.count} | Replies: ${cast.replies.count}
+   Cast Hash: ${cast.hash}
    `;
     } catch (error) {
       console.error(`Error formatting cast at index ${index}:`, error);
@@ -283,131 +237,42 @@ ${replyInfo}${embedsInfo}   Cast ID: ${cast.hash}
     }
   });
   
-  const formattedCasts = await Promise.all(formattedCastsPromises);
   return formattedCasts.join("\n---\n");
 }
 
-// Helper function to find FID by username
-async function getFidByUsername(username: string): Promise<number | null> {
+// Helper function to get user data by username from Warpcast API
+async function getUserByUsername(username: string): Promise<{ fid: number; displayName: string } | null> {
   try {
-    console.error(`Looking up FID for username: ${username}`);
+    console.error(`Looking up user data for username: ${username}`);
     
-    // Try with the original endpoint first
-    try {
-      const response = await fetchFromHubble(`/userNameProofByName`, {
-        name: username
-      });
-      
-      console.error(`Username proof response:`, JSON.stringify(response, null, 2));
-      
-      if (response && response.fid) {
-        console.error(`Found FID ${response.fid} for username ${username}`);
-        return response.fid;
-      }
-      
-      if (response && response.proof && response.proof.fid) {
-        console.error(`Found FID ${response.proof.fid} for username ${username}`);
-        return response.proof.fid;
-      }
-    } catch (error) {
-      console.error(`Error with first endpoint attempt:`, error);
+    const response = await axios.get(`${WARPCAST_API_BASE}/user-by-username`, {
+      params: { username }
+    });
+    
+    if (response.data && response.data.result && response.data.result.user) {
+      const user = response.data.result.user;
+      console.error(`Found user: FID ${user.fid}, displayName: ${user.displayName}`);
+      return {
+        fid: user.fid,
+        displayName: user.displayName
+      };
     }
     
-    // Try with a different case variation
-    try {
-      console.error(`Trying with different case: /usernameproofbyname`);
-      const response2 = await fetchFromHubble(`/usernameproofbyname`, {
-        name: username
-      });
-      
-      console.error(`Second attempt response:`, JSON.stringify(response2, null, 2));
-      
-      if (response2 && response2.fid) {
-        console.error(`Found FID ${response2.fid} for username ${username}`);
-        return response2.fid;
-      }
-      
-      if (response2 && response2.proof && response2.proof.fid) {
-        console.error(`Found FID ${response2.proof.fid} for username ${username}`);
-        return response2.proof.fid;
-      }
-    } catch (error) {
-      console.error(`Error with second endpoint attempt:`, error);
-    }
-    
-    // Try with a different endpoint format
-    try {
-      console.error(`Trying with different endpoint format: /usernameProofs/${username}`);
-      const response3 = await fetchFromHubble(`/usernameProofs/${username}`);
-      
-      console.error(`Third attempt response:`, JSON.stringify(response3, null, 2));
-      
-      if (response3 && response3.fid) {
-        console.error(`Found FID ${response3.fid} for username ${username}`);
-        return response3.fid;
-      }
-      
-      if (response3 && response3.proof && response3.proof.fid) {
-        console.error(`Found FID ${response3.proof.fid} for username ${username}`);
-        return response3.proof.fid;
-      }
-    } catch (error) {
-      console.error(`Error with third endpoint attempt:`, error);
-    }
-    
-    // If we get here, we couldn't find the FID
-    console.error(`No FID found for username ${username} after trying multiple endpoints`);
+    console.error(`No user found for username ${username}`);
     return null;
   } catch (error) {
-    console.error(`Error finding FID by username ${username}:`, error);
+    console.error(`Error finding user by username ${username}:`, error);
     return null;
   }
 }
 
-// Helper function to get channel URL from channel name or ID
-async function getChannelUrl(channelNameOrId: string): Promise<string | null> {
-  try {
-    // If it's already a full URL or hash format, return it as is
-    if (channelNameOrId.startsWith('https://') || 
-        channelNameOrId.startsWith('chain://') || 
-        channelNameOrId.startsWith('0x')) {
-      return channelNameOrId;
-    }
-    
-    // First try the direct Warpcast URL approach
-    const warpcastUrl = `https://warpcast.com/~/channel/${channelNameOrId}`;
-    
-    // Try to fetch channel info from Warpcast API as a fallback
-    console.error(`Fetching channel info for "${channelNameOrId}" from Warpcast API`);
-    try {
-      const response = await axios.get('https://api.warpcast.com/v2/all-channels');
-      
-      if (response.data && response.data.result && response.data.result.channels) {
-        // Look for channel by ID or name (case insensitive)
-        const channelNameLower = channelNameOrId.toLowerCase();
-        const channel = response.data.result.channels.find((c: any) => 
-          c.id.toLowerCase() === channelNameLower || 
-          c.name.toLowerCase() === channelNameLower
-        );
-        
-        if (channel) {
-          console.error(`Found channel: ${channel.name} (${channel.id}) with URL: ${channel.url}`);
-          return channel.url; // Return the hash URL from the API
-        }
-      }
-      
-      console.error(`Channel "${channelNameOrId}" not found in Warpcast API response, using direct Warpcast URL`);
-      return warpcastUrl; // Fall back to direct URL if not found in API
-    } catch (error) {
-      console.error(`Error fetching from Warpcast API: ${error instanceof Error ? error.message : String(error)}`);
-      console.error(`Falling back to direct Warpcast URL: ${warpcastUrl}`);
-      return warpcastUrl; // Fall back to direct URL if API call fails
-    }
-  } catch (error) {
-    console.error(`Error creating channel URL: ${error instanceof Error ? error.message : String(error)}`);
-    return null;
-  }
+// Helper function to find FID by username (wrapper for backward compatibility)
+async function getFidByUsername(username: string): Promise<number | null> {
+  const user = await getUserByUsername(username);
+  return user ? user.fid : null;
 }
+
+
 
 // Main function to start the server
 async function main() {
@@ -423,15 +288,9 @@ async function main() {
       async ({ fid, limit = 10 }: { fid: number; limit?: number }) => {
         try {
           console.error(`Fetching casts for FID ${fid} with limit ${limit}`);
-          const response = await fetchFromHubble(`/castsByFid`, {
-            fid,
-            pageSize: limit,
-            reverse: 1 // Get newest first
-          }) as FarcasterCastsResponse;
+          const casts = await getCastsByFid(fid, limit);
           
-          console.error(`Got response with ${response.messages?.length || 0} messages`);
-          
-          if (!response.messages || response.messages.length === 0) {
+          if (!casts || casts.length === 0) {
             return {
               content: [
                 {
@@ -442,7 +301,7 @@ async function main() {
             };
           }
           
-          const castsText = await formatCasts(response.messages, limit);
+          const castsText = formatWarpcastCasts(casts, limit);
           
           return {
             content: [
@@ -467,132 +326,6 @@ async function main() {
       }
     );
     
-    // Register tool for getting casts from a channel (parent URL)
-    server.tool(
-      "get-channel-casts",
-      "Get casts from a specific Farcaster channel",
-      {
-        channel: z.string().describe("Channel name (e.g., 'aichannel') or URL"),
-        limit: z.number().optional().describe("Maximum number of casts to return (default: 10)")
-      },
-      async ({ channel, limit = 10 }: { channel: string; limit?: number }) => {
-        try {
-          // First, determine the channel URL
-          let channelUrl: string | null = null;
-          
-          // If it's already a URL format, use it directly
-          if (channel.startsWith('https://') || 
-              channel.startsWith('chain://') || 
-              channel.startsWith('0x')) {
-            channelUrl = channel;
-            console.error(`Using provided URL: ${channelUrl}`);
-          } else {
-            // Otherwise, get the URL for the channel name
-            channelUrl = await getChannelUrl(channel);
-            
-            if (!channelUrl) {
-              return {
-                content: [
-                  {
-                    type: "text",
-                    text: `Failed to create URL for channel "${channel}".`
-                  }
-                ],
-                isError: true
-              };
-            }
-            console.error(`Using URL for channel "${channel}": ${channelUrl}`);
-          }
-          
-          // Set up parameters for the API call
-          const params: Record<string, any> = {
-            pageSize: limit,
-            reverse: 1 // Get newest first
-          };
-          
-          // Use url parameter for the API call as shown in the example
-          params.url = channelUrl;
-          
-          console.error(`Fetching casts with params:`, params);
-          let response: FarcasterCastsResponse;
-          
-          try {
-            response = await fetchFromHubble(`/castsByParent`, params) as FarcasterCastsResponse;
-          } catch (error) {
-            // If the first attempt fails and we're using a Warpcast URL, try the API lookup approach
-            if (channelUrl.includes('warpcast.com') && !channel.startsWith('https://')) {
-              console.error(`First attempt failed, trying to get hash URL from Warpcast API`);
-              
-              // Try to fetch channel info from Warpcast API
-              try {
-                const apiResponse = await axios.get('https://api.warpcast.com/v2/all-channels');
-                
-                if (apiResponse.data && apiResponse.data.result && apiResponse.data.result.channels) {
-                  // Look for channel by ID or name (case insensitive)
-                  const channelNameLower = channel.toLowerCase();
-                  const channelInfo = apiResponse.data.result.channels.find((c: any) => 
-                    c.id.toLowerCase() === channelNameLower || 
-                    c.name.toLowerCase() === channelNameLower
-                  );
-                  
-                  if (channelInfo && channelInfo.url) {
-                    console.error(`Found channel in API: ${channelInfo.name} (${channelInfo.id}) with URL: ${channelInfo.url}`);
-                    
-                    // Try again with the hash URL
-                    params.url = channelInfo.url;
-                    console.error(`Retrying with hash URL: ${channelInfo.url}`);
-                    response = await fetchFromHubble(`/castsByParent`, params) as FarcasterCastsResponse;
-                  } else {
-                    throw new Error(`Channel "${channel}" not found in Warpcast API`);
-                  }
-                } else {
-                  throw error; // Re-throw the original error if API response is invalid
-                }
-              } catch (apiError) {
-                console.error(`Error fetching from Warpcast API: ${apiError instanceof Error ? apiError.message : String(apiError)}`);
-                throw error; // Re-throw the original error if API call fails
-              }
-            } else {
-              throw error; // Re-throw the error if it's not a Warpcast URL or if it's already a full URL
-            }
-          }
-          
-          if (!response.messages || response.messages.length === 0) {
-            return {
-              content: [
-                {
-                  type: "text",
-                  text: `No casts found for channel "${channel}"`
-                }
-              ]
-            };
-          }
-          
-          const castsText = await formatCasts(response.messages, limit);
-          
-          return {
-            content: [
-              {
-                type: "text",
-                text: `# Recent Casts in Channel "${channel}"\n\n${castsText}`
-              }
-            ]
-          };
-        } catch (error) {
-          console.error("Error in get-channel-casts:", error);
-          return {
-            content: [
-              {
-                type: "text",
-                text: `Error fetching channel casts: ${error instanceof Error ? error.message : String(error)}`
-              }
-            ],
-            isError: true
-          };
-        }
-      }
-    );
-    
     // Register tool for getting casts by username
     server.tool(
       "get-username-casts",
@@ -605,10 +338,10 @@ async function main() {
         try {
           console.error(`Looking up casts for username: ${username}`);
           
-          // First, we need to get the FID for the username
-          const fid = await getFidByUsername(username);
+          // Get user data directly from Warpcast API
+          const user = await getUserByUsername(username);
           
-          if (!fid) {
+          if (!user) {
             return {
               content: [
                 {
@@ -620,41 +353,29 @@ async function main() {
             };
           }
           
-          console.error(`Found FID ${fid} for username ${username}, fetching user data`);
-          
-          // Get user data to ensure we have the display name
-          const userData = await getUserData(fid);
-          
-          // Use the display name if available, otherwise use the FID
-          const displayName = userData.displayName || `FID: ${fid}`;
-          
-          console.error(`User data: displayName=${displayName}`);
+          console.error(`Found user: FID ${user.fid}, displayName: ${user.displayName}`);
           
           // Now get the casts for this FID
-          const response = await fetchFromHubble(`/castsByFid`, {
-            fid,
-            pageSize: limit,
-            reverse: 1 // Get newest first
-          }) as FarcasterCastsResponse;
+          const casts = await getCastsByFid(user.fid, limit);
           
-          if (!response.messages || response.messages.length === 0) {
+          if (!casts || casts.length === 0) {
             return {
               content: [
                 {
                   type: "text",
-                  text: `No casts found for ${displayName} (FID: ${fid})`
+                  text: `No casts found for ${user.displayName} (FID: ${user.fid})`
                 }
               ]
             };
           }
           
-          const castsText = await formatCasts(response.messages, limit);
+          const castsText = formatWarpcastCasts(casts, limit);
           
           return {
             content: [
               {
                 type: "text",
-                text: `# Casts from ${displayName}\n\n${castsText}`
+                text: `# Casts from ${user.displayName}\n\n${castsText}`
               }
             ]
           };
@@ -665,6 +386,83 @@ async function main() {
               {
                 type: "text",
                 text: `Error fetching casts by username: ${error instanceof Error ? error.message : String(error)}`
+              }
+            ],
+            isError: true
+          };
+        }
+      }
+    );
+
+    // Register tool for getting user info by username
+    server.tool(
+      "get-user-info",
+      "Get user information by Farcaster username",
+      {
+        username: z.string().describe("Farcaster username")
+      },
+      async ({ username }: { username: string }) => {
+        try {
+          console.error(`Looking up user info for username: ${username}`);
+          
+          const user = await getUserByUsername(username);
+          
+          if (!user) {
+            return {
+              content: [
+                {
+                  type: "text",
+                  text: `User "${username}" not found.`
+                }
+              ],
+              isError: true
+            };
+          }
+
+          // Get full user data from Warpcast API
+          const response = await axios.get(`${WARPCAST_API_BASE}/user-by-username`, {
+            params: { username }
+          });
+
+          if (response.data && response.data.result && response.data.result.user) {
+            const userData = response.data.result.user;
+            
+            return {
+              content: [
+                {
+                  type: "text",
+                  text: `# User Information for @${username}
+
+**Display Name:** ${userData.displayName}
+**FID:** ${userData.fid}
+**Username:** @${userData.username}
+**Bio:** ${userData.profile.bio.text}
+**Followers:** ${userData.followerCount}
+**Following:** ${userData.followingCount}
+**Profile Picture:** ${userData.pfp.url}
+**Verified:** ${userData.pfp.verified ? 'Yes' : 'No'}
+**Early Wallet Adopter:** ${userData.profile.earlyWalletAdopter ? 'Yes' : 'No'}
+${userData.profile.location.description ? `**Location:** ${userData.profile.location.description}` : ''}`
+                }
+              ]
+            };
+          }
+
+          return {
+            content: [
+              {
+                type: "text",
+                text: `Found user but couldn't get detailed information for ${username}`
+              }
+            ]
+          };
+        } catch (error) {
+          console.error("Error in get-user-info:", error);
+          return {
+            content: [
+              {
+                type: "text",
+                text: `Error fetching user info: ${error instanceof Error ? error.message : String(error)}`
               }
             ],
             isError: true
