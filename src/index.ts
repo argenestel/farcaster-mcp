@@ -111,9 +111,9 @@ async function fetchFromClient(endpoint: string, params: Record<string, any> = {
 
 async function postCasts(endpoint: string, BearerToken: string, cast: string, embeds?: string[]) {
   try {
-    const response = await axios.post(`${CLIENT_API_BASE}${endpoint}`, { 
-      text: cast, 
-      embeds: embeds || [] 
+    const response = await axios.post(`${CLIENT_API_BASE}${endpoint}`, {
+      text: cast,
+      embeds: embeds || []
     }, {
       headers: {
         "authorization": `Bearer ${BearerToken}`,
@@ -285,7 +285,7 @@ async function main() {
           }
 
           console.error(`Posting cast: "${cast}"`);
-          
+
           // Post the cast using the Farcaster Client API
           const result = await postCasts("/v2/casts", FARCASTER_BEARER_TOKEN, cast, embeds);
 
