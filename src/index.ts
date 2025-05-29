@@ -290,14 +290,8 @@ async function main() {
           const result = await postCasts("/v2/casts", FARCASTER_BEARER_TOKEN, cast, embeds);
 
           if (result?.success || result?.data) {
-            const castHash = result.data?.hash || result.hash || "unknown";
             return {
-              content: [
-                {
-                  type: "text",
-                  text: `# Cast Posted Successfully! 🎉\n\nYour cast has been posted to Farcaster.\n\nCast content: "${cast}"\nCast ID: ${castHash}\n\n${embeds ? `Embeds: ${embeds.join(", ")}\n` : ""}Status: Posted`
-                }
-              ]
+              content: [result]
             };
           } else {
             throw new Error("Unexpected response format from Farcaster API");
