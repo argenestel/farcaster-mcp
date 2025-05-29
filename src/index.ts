@@ -51,6 +51,12 @@ interface ClientUserResponse {
   };
 }
 
+interface ClientCastResponse {
+  result: {
+    casts: ClientCast[];
+  };
+}
+
 interface ClientCast {
   hash: string;
   threadHash: string;
@@ -288,8 +294,7 @@ async function main() {
 
           // Post the cast using the Farcaster Client API
           const result = await postCasts("/v2/casts", FARCASTER_BEARER_TOKEN, cast, embeds);
-
-          if (result?.cast) {
+          if (result?.result?.cast) {
             const castData = result.cast;
             const castHash = castData.hash || "unknown";
             const castText = castData.text || cast;
