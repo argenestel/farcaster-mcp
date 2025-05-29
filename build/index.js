@@ -192,7 +192,7 @@ async function main() {
                 // Post the cast using the Farcaster Client API
                 const result = await postCasts("/v2/casts", FARCASTER_BEARER_TOKEN, cast, embeds);
                 if (result?.result?.cast) {
-                    const castData = result.cast;
+                    const castData = result.result.cast;
                     const castHash = castData.hash || "unknown";
                     const castText = castData.text || cast;
                     return {
