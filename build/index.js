@@ -171,7 +171,7 @@ async function main() {
                 };
             }
         });
-        server.tool("post-cast", "Post a cast to Farcaster", {
+        server.tool("post-cast", "Post a new cast to Farcaster", {
             cast: z.string().describe("The text content of the cast to be posted"),
             embeds: z.array(z.string()).optional().describe("Optional array of URLs to embed in the cast")
         }, async ({ cast, embeds }) => {
@@ -191,17 +191,20 @@ async function main() {
                 console.error(`Posting cast: "${cast}"`);
                 // Post the cast using the Farcaster Client API
                 const result = await postCasts("/v2/casts", FARCASTER_BEARER_TOKEN, cast, embeds);
-                if (result?.result?.cast || result?.data?.cast || result?.cast) {
-                    const castData = result.result?.cast || result.data?.cast || result.cast;
+                if (result?.cast) {
+                    const castData = result.cast;
                     const castHash = castData.hash || "unknown";
                     const castText = castData.text || cast;
                     return {
-                        content: []
+                        content: [
+                            {
+                                type: "text",
+                                text: `# Cast Posted Successfully! 🎉\n\nYour cast has been posted to Farcaster.\n\nCast content: "${castText}"\nCast ID: ${castHash}\nTimestamp: ${new Date(castData.timestamp || Date.now()).toLocaleString()}\n\n${embeds ? `Embeds: ${embeds.join(", ")}\n` : ""}Status: Posted`
+                            }
+                        ]
                     };
                 }
                 else {
-                    // For debugging - log the actual response structure
-                    console.error("Unexpected API response structure:", JSON.stringify(result, null, 2));
                     throw new Error(`Unexpected response format from Farcaster API. Response: ${JSON.stringify(result)}`);
                 }
             }
