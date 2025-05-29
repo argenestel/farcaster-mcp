@@ -6,9 +6,11 @@ import { z } from "zod";
 import axios from "axios";
 import { Buffer } from 'buffer';
 import * as process from 'process';
-
 // Farcaster Client API base URL
 const CLIENT_API_BASE = "https://client.farcaster.xyz";
+
+// Environment variable handling
+const FARCASTER_BEARER_TOKEN = process.env.FARCASTER_BEARER_TOKEN;
 
 // Create MCP server with all capabilities
 const server = new McpServer({
@@ -107,22 +109,43 @@ async function fetchFromClient(endpoint: string, params: Record<string, any> = {
   }
 }
 
+async function postCasts(endpoint: string, BearerToken: string, cast: string, embeds?: string[]) {
+  try {
+    const response = await axios.post(`${CLIENT_API_BASE}${endpoint}`, { 
+      text: cast, 
+      embeds: embeds || [] 
+    }, {
+      headers: {
+        "authorization": `Bearer ${BearerToken}`,
+        "content-type": "application/json"
+      }
+    });
+    return response.data;
+  } catch (error) {
+    console.error("Error posting cast:", error);
+    if (axios.isAxiosError(error) && error.response) {
+      throw new Error(`Client API error: ${error.response.status} - ${error.response.data?.details || error.message}`);
+    }
+    throw new Error(`Failed to post cast: ${error instanceof Error ? error.message : String(error)}`);
+  }
+}
+
 // Helper function to get user data by username
 async function getUserByUsername(username: string): Promise<ClientUserResponse['result']['user'] | null> {
   try {
-    console.error(`Looking up user data for username: ${username}`);
+    console.error(`Looking up user data for username: ${username} `);
     const response = await fetchFromClient(`/v2/user-by-username`, {
       username
     }) as ClientUserResponse;
-    
+
     if (response?.result?.user) {
-      console.error(`Found user data for ${username}: FID=${response.result.user.fid}`);
+      console.error(`Found user data for ${username}: FID = ${response.result.user.fid} `);
       return response.result.user;
     }
-    
+
     return null;
   } catch (error) {
-    console.error(`Error getting user data for ${username}:`, error);
+    console.error(`Error getting user data for ${username}: `, error);
     return null;
   }
 }
@@ -130,20 +153,20 @@ async function getUserByUsername(username: string): Promise<ClientUserResponse['
 // Helper function to get casts by FID
 async function getCastsByFid(fid: number, limit: number = 10): Promise<ClientCast[]> {
   try {
-    console.error(`Fetching casts for FID ${fid} with limit ${limit}`);
+    console.error(`Fetching casts for FID ${fid} with limit ${limit} `);
     const response = await fetchFromClient(`/v2/casts`, {
       fid,
       limit
     }) as ClientCastResponse;
-    
+
     if (response?.result?.casts) {
       console.error(`Found ${response.result.casts.length} casts for FID ${fid}`);
       return response.result.casts;
     }
-    
+
     return [];
   } catch (error) {
-    console.error(`Error getting casts for FID ${fid}:`, error);
+    console.error(`Error getting casts for FID ${fid}: `, error);
     return [];
   }
 }
@@ -153,37 +176,37 @@ async function formatCasts(casts: ClientCast[], limit: number = 10) {
   if (!casts || casts.length === 0) {
     return "No casts found.";
   }
-  
+
   console.error(`Formatting ${casts.length} casts`);
-  
+
   // Limit the number of casts
   const limitedCasts = casts.slice(0, limit);
-  
+
   // Format each cast
   const formattedCasts = limitedCasts.map((cast, index) => {
     try {
       const date = new Date(cast.timestamp).toLocaleString();
-      
+
       // Format parent info if this is a reply
       let replyInfo = "";
       if (cast.parentHash && cast.parentAuthor) {
-        replyInfo = `   Reply to: ${cast.parentAuthor.username} (FID: ${cast.parentAuthor.fid})\n`;
+        replyInfo = `   Reply to: ${cast.parentAuthor.username} (FID: ${cast.parentAuthor.fid}) \n`;
       }
-      
+
       return `
 ${index + 1}. ${cast.author.displayName} (@${cast.author.username})
-   FID: ${cast.author.fid}
-   Time: ${date}
-   Text: ${cast.text}
+    FID: ${cast.author.fid}
+    Time: ${date}
+    Text: ${cast.text}
 ${replyInfo}   Cast ID: ${cast.hash}
-   Reactions: ${cast.reactions.count} | Recasts: ${cast.recasts.count} | Replies: ${cast.replies.count}
-   `;
+    Reactions: ${cast.reactions.count} | Recasts: ${cast.recasts.count} | Replies: ${cast.replies.count}
+    `;
     } catch (error) {
-      console.error(`Error formatting cast at index ${index}:`, error);
-      return `${index + 1}. [Error formatting cast]`;
+      console.error(`Error formatting cast at index ${index}: `, error);
+      return `${index + 1}.[Error formatting cast]`;
     }
   });
-  
+
   return formattedCasts.join("\n---\n");
 }
 
@@ -200,9 +223,9 @@ async function main() {
       },
       async ({ fid, limit = 10 }: { fid: number; limit?: number }) => {
         try {
-          console.error(`Fetching casts for FID ${fid} with limit ${limit}`);
+          console.error(`Fetching casts for FID ${fid} with limit ${limit} `);
           const casts = await getCastsByFid(fid, limit);
-          
+
           if (!casts || casts.length === 0) {
             return {
               content: [
@@ -213,14 +236,14 @@ async function main() {
               ]
             };
           }
-          
+
           const castsText = await formatCasts(casts, limit);
-          
+
           return {
             content: [
               {
                 type: "text",
-                text: `# Casts from FID ${fid}\n\n${castsText}`
+                text: `# Casts from FID ${fid} \n\n${castsText} `
               }
             ]
           };
@@ -230,7 +253,7 @@ async function main() {
             content: [
               {
                 type: "text",
-                text: `Error fetching casts: ${error instanceof Error ? error.message : String(error)}`
+                text: `Error fetching casts: ${error instanceof Error ? error.message : String(error)} `
               }
             ],
             isError: true
@@ -238,7 +261,62 @@ async function main() {
         }
       }
     );
-    
+
+    server.tool(
+      "post-cast",
+      "Post a cast to Farcaster",
+      {
+        cast: z.string().describe("The text content of the cast to be posted"),
+        embeds: z.array(z.string()).optional().describe("Optional array of URLs to embed in the cast")
+      },
+      async ({ cast, embeds }: { cast: string; embeds?: string[] }) => {
+        try {
+          // Check if Bearer token is available
+          if (!FARCASTER_BEARER_TOKEN) {
+            return {
+              content: [
+                {
+                  type: "text",
+                  text: "Error: FARCASTER_BEARER_TOKEN environment variable is required for posting casts. Please set it and restart the server."
+                }
+              ],
+              isError: true
+            };
+          }
+
+          console.error(`Posting cast: "${cast}"`);
+          
+          // Post the cast using the Farcaster Client API
+          const result = await postCasts("/v2/casts", FARCASTER_BEARER_TOKEN, cast, embeds);
+
+          if (result?.success || result?.data) {
+            const castHash = result.data?.hash || result.hash || "unknown";
+            return {
+              content: [
+                {
+                  type: "text",
+                  text: `# Cast Posted Successfully! 🎉\n\nYour cast has been posted to Farcaster.\n\nCast content: "${cast}"\nCast ID: ${castHash}\n\n${embeds ? `Embeds: ${embeds.join(", ")}\n` : ""}Status: Posted`
+                }
+              ]
+            };
+          } else {
+            throw new Error("Unexpected response format from Farcaster API");
+          }
+        } catch (error) {
+          console.error("Error in post-cast:", error);
+          return {
+            content: [
+              {
+                type: "text",
+                text: `Error posting cast: ${error instanceof Error ? error.message : String(error)}`
+              }
+            ],
+            isError: true
+          };
+        }
+      }
+    );
+
     // Register tool for getting casts by username
     server.tool(
       "get-username-casts",
@@ -249,11 +327,11 @@ async function main() {
       },
       async ({ username, limit = 10 }: { username: string; limit?: number }) => {
         try {
-          console.error(`Looking up casts for username: ${username}`);
-          
+          console.error(`Looking up casts for username: ${username} `);
+
           // First, get the user data which includes FID
           const userData = await getUserByUsername(username);
-          
+
           if (!userData) {
             return {
               content: [
@@ -265,28 +343,28 @@ async function main() {
               isError: true
             };
           }
-          
+
           // Now get the casts for this FID
           const casts = await getCastsByFid(userData.fid, limit);
-          
+
           if (!casts || casts.length === 0) {
             return {
               content: [
                 {
                   type: "text",
-                  text: `No casts found for ${userData.displayName} (@${userData.username})`
+                  text: `No casts found for ${userData.displayName}(@${userData.username})`
                 }
               ]
             };
           }
-          
+
           const castsText = await formatCasts(casts, limit);
-          
+
           return {
             content: [
               {
                 type: "text",
-                text: `# Casts from ${userData.displayName} (@${userData.username})\n\n${castsText}`
+                text: `# Casts from ${userData.displayName} (@${userData.username}) \n\n${castsText} `
               }
             ]
           };
@@ -296,7 +374,7 @@ async function main() {
             content: [
               {
                 type: "text",
-                text: `Error fetching casts by username: ${error instanceof Error ? error.message : String(error)}`
+                text: `Error fetching casts by username: ${error instanceof Error ? error.message : String(error)} `
               }
             ],
             isError: true
@@ -304,7 +382,7 @@ async function main() {
         }
       }
     );
-    
+
     // Connect to transport
     const transport = new StdioServerTransport();
     await server.connect(transport);
