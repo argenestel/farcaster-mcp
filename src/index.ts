@@ -295,12 +295,7 @@ async function main() {
             const castText = castData.text || cast;
             
             return {
-              content: [
-                {
-                  type: "text",
-                  text: `# Cast Posted Successfully! 🎉\n\nYour cast has been posted to Farcaster.\n\nCast content: "${castText}"\nCast ID: ${castHash}\nTimestamp: ${new Date(castData.timestamp || Date.now()).toLocaleString()}\n\n${embeds ? `Embeds: ${embeds.join(", ")}\n` : ""}Status: Posted`
-                }
-              ]
+              content: []
             };
           } else {
             // For debugging - log the actual response structure
