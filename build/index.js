@@ -225,20 +225,26 @@ async function main() {
                 };
             }
         });
-        server.tool("search-casts", "Search for casts by query and return the results", {
-            query: z.string().describe("The query to search for"),
-            limit: z.number().optional().describe("Maximum number of casts to return (default: 10)")
-        }, async ({ query, limit = 10 }) => {
-            const casts = await searchCasts(query, limit);
-            return {
-                content: [
-                    {
-                        type: "text",
-                        text: `# Search Results for "${query}" \n\n${casts} `
-                    }
-                ]
-            };
-        });
+        // Register tool for searching casts by query
+        // server.tool(
+        //   "search-casts",
+        //   "Search for casts by query and return the results",
+        //   {
+        //     query: z.string().describe("The query to search for"),
+        //     limit: z.number().optional().describe("Maximum number of casts to return (default: 10)")
+        //   },
+        //   async ({ query, limit = 10 }: { query: string; limit?: number }) => {
+        //     const casts = await searchCasts(query, limit);
+        //     return {
+        //       content: [
+        //         {
+        //           type: "text",
+        //           text: `# Search Results for "${query}" \n\n${casts} `
+        //         }
+        //       ]
+        //     };
+        //   }
+        // );
         // Register tool for getting casts by username
         server.tool("get-username-casts", "Get casts from a specific Farcaster username", {
             username: z.string().describe("Farcaster username"),
